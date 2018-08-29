@@ -16,6 +16,7 @@ data = sc.textFile('data.txt').map(
 centroids1 = sc.textFile('c1.txt').map(
    lambda line: np.array([float(x) for x in line.split(' ')])).cache()
 
+
 def min_distance(line, cur_c):
     min_distance = float("inf")
     min_distance_idx = 0
@@ -25,6 +26,7 @@ def min_distance(line, cur_c):
             min_distance = temp
             min_distance_idx = idx
     return min_distance_idx
+
 
 MAX_ITER = 100
 
