@@ -1,19 +1,17 @@
-import os
 import sys
 import io
 import numpy as np
+from pyspark import SparkContext
 
-spark_home = os.environ.get('SPARK_HOME', None)
-sys.path.insert(0, os.path.join(spark_home, 'python/lib/py4j-0.10.4-src.zip'))
-sys.path.insert(0, os.path.join(spark_home, 'python'))
-exec(open(os.path.join(os.environ["SPARK_HOME"], 'python/pyspark/shell.py')).read())
+
+sc = SparkContext('local[2]', 'hw4')
 
 # Load the data
-data = sc.textFile('data.txt').map(
+data = sc.textFile(sys.argv[1]).map(
    lambda line: np.array([float(x) for x in line.split(' ')])).cache()
 
 # Load the initial centroids
-centroids1 = sc.textFile('c1.txt').map(
+centroids1 = sc.textFile(sys.argv[2]).map(
    lambda line: np.array([float(x) for x in line.split(' ')])).cache()
 
 
@@ -28,15 +26,21 @@ def min_distance(line, cur_c):
     return min_distance_idx
 
 
-MAX_ITER = 100
+try:
+    sys.argv[3]
+except IndexError:
+    MAX_ITER = 100
+else:
+    MAX_ITER = int(sys.argv[3])
+
 
 cur_centroids = centroids1.zipWithIndex().map(lambda l: (l[1], l[0])).collect()
 
 for _ in range(MAX_ITER):
     cur_iter = data.map(lambda l: (min_distance(l, cur_centroids), l))
-    aTuple = (0,0)
-    cur_iter_aggr = cur_iter.aggregateByKey(aTuple, lambda a,b: (a[0] + b, a[1] + 1),
-                                       lambda a,b: (a[0] + b[0], a[1] + b[1]))
+    aTuple = (0, 0)
+    cur_iter_aggr = cur_iter.aggregateByKey(aTuple, lambda a, b: (a[0] + b, a[1] + 1),
+                                            lambda a, b: (a[0] + b[0], a[1] + b[1]))
     new_c = cur_iter_aggr.mapValues(lambda v: v[0]/v[1]).collect()
     cur_centroids = new_c
 
@@ -47,3 +51,5 @@ with io.open('output_centroids.txt', 'a', encoding='utf-8') as file:
     for _, c in final_result:
         file.write(' '.join([str(v) for v in c]))
         file.write('\n')
+
+print("K-Means iterated", MAX_ITER, "times finished. See 'output_centroids.txt' for results.")
